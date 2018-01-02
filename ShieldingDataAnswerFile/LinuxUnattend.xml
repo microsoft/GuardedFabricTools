@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinuxOSSpecialization 
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema" 
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+    xmlns="http://www.microsoft.com/schema/linuxvmmst">
+    <!-- This unattend file is intended for use with shielded virtual machines deployed with
+         System Center Virtual Machine Manager. Values surrounded by hashes (##Value##)
+         are static values that need to be replaced before using the unattend file. Values
+         surrounded by @ symbols (@ComputerName@) are deployment time variables, and should
+         remain in the answer file. The VMM deployment wizard will allow you to specify the
+         final value for these fields. If you are not using VMM, be sure to include any
+         @Values@ in your fabric specialization keyfile (FSK) file with the appropriate
+         substitution string for your final VM. -->
+    <SchemaVersion>1.00-0</SchemaVersion>
+    <AgentVersion>1.0.2.1075</AgentVersion>
+    <OSConfiguration>
+        <HostName>@ComputerName@</HostName>
+        <Users>
+            <User>
+                <UserName>root</UserName>
+                <Password>##Administrator#Password##</Password>
+                <!-- SSH keys can only be configured for the root user at this time. -->
+                <SSHKey>##Administrator#SSHKey##</SSHKey>
+            </User>
+        </Users>
+        <VNetAdapters>
+            <VNetAdapter>
+                <MACAddress>@MACAddr-1@</MACAddress>
+                <IPV4Property>
+                    <StaticIP>
+                        <Address>@IP4Addr-1@</Address>
+                        <AddressType>STATIC</AddressType>
+                    </StaticIP>
+                </IPV4Property>
+                <IPV6Property>
+                    <StaticIP>
+                        <Address>@IP6Addr-1@</Address>
+                        <AddressType>STATIC</AddressType>
+                    </StaticIP>
+                </IPV6Property>
+                <NameServers>
+                    <NameServer>@DnsAddr-1-1@</NameServer>
+                </NameServers>
+                <Gateways>
+                    <Gateway>
+                        <Address>@NextHop-1-1@</Address>
+                    </Gateway>
+                </Gateways>
+            </VNetAdapter>
+        </VNetAdapters>
+    </OSConfiguration>
+</LinuxOSSpecialization>

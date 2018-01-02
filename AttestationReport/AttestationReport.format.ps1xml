@@ -1,0 +1,33 @@
+<Configuration>  
+  <ViewDefinitions>  
+    <View>  
+      <Name>AttestationReportOutputView</Name>  
+      <ViewSelectedBy>  
+        <TypeName>AttestationReport</TypeName>  
+      </ViewSelectedBy>  
+      <TableControl>
+        <TableRowEntries>
+          <TableRowEntry>
+            <TableColumnItems>
+              <TableColumnItem>
+               <PropertyName>Time</PropertyName>
+              </TableColumnItem>
+              <TableColumnItem>
+                <PropertyName>HostName</PropertyName>
+              </TableColumnItem>
+              <TableColumnItem>
+                <PropertyName>AttestationOperationMode</PropertyName>
+              </TableColumnItem>
+              <TableColumnItem>
+                <PropertyName>AttestationStatus</PropertyName>
+              </TableColumnItem>
+              <TableColumnItem>
+                <PropertyName>AttestationSubStatus</PropertyName>
+              </TableColumnItem>
+            </TableColumnItems>
+          </TableRowEntry>
+        </TableRowEntries>
+      </TableControl>
+    </View>  
+  </ViewDefinitions>  
+</Configuration>  

@@ -1,0 +1,149 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<unattend 
+    xmlns="urn:schemas-microsoft-com:unattend">
+    <!-- This unattend file is intended for use with shielded virtual machines deployed with
+         System Center Virtual Machine Manager. Values surrounded by hashes (##DomainName##)
+         are static values that need to be replaced before using the unattend file. Values
+         surrounded by @ symbols (@ComputerName@) are deployment time variables, and should
+         remain in the answer file. The VMM deployment wizard will allow you to specify the
+         final value for these fields. If you are not using VMM, be sure to include any
+         @Values@ in your fabric specialization keyfile (FSK) file with the appropriate
+         substitution string for your final VM. -->
+    <settings pass="specialize">
+        <component name="Microsoft-Windows-Shell-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" 
+            xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State" 
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+            <ComputerName>@ComputerName@</ComputerName>
+            <ProductKey>@ProductKey@</ProductKey>
+        </component>
+        <component name="Microsoft-Windows-Deployment" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" 
+            xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State" 
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+            <RunSynchronous>
+                <RunSynchronousCommand wcm:action="add">
+                    <Order>1</Order>
+                    <Description>Removes copies of the unattend file to avoid information disclosure. This should be the second to last command to run.</Description>
+                    <Path>cmd.exe /c "echo del %WINDIR%\Panther\unattend.xml %SYSTEMDRIVE%\unattend.xml /s /f &gt;&gt; %WINDIR%\Setup\Scripts\SetupComplete.cmd"</Path>
+                </RunSynchronousCommand>
+                <RunSynchronousCommand wcm:action="add">
+                    <Order>2</Order>
+                    <Description>Shuts down the VM after it has finished provisioning. This must be the last command to run.</Description>
+                    <Path>cmd.exe /c "echo shutdown /s /f" &gt;&gt; %WINDIR%\Setup\Scripts\SetupComplete.cmd</Path>
+                    <WillReboot>OnRequest</WillReboot>
+                </RunSynchronousCommand>
+            </RunSynchronous>
+        </component>
+        <component name="Microsoft-Windows-TCPIP" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" 
+            xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State" 
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+            <Interfaces>
+                <Interface wcm:action="add">
+                    <Ipv4Settings>
+                        <DhcpEnabled>false</DhcpEnabled>
+                        <RouterDiscoveryEnabled>false</RouterDiscoveryEnabled>
+                    </Ipv4Settings>
+                    <Ipv6Settings>
+                        <DhcpEnabled>false</DhcpEnabled>
+                        <RouterDiscoveryEnabled>true</RouterDiscoveryEnabled>
+                    </Ipv6Settings>
+                    <Identifier>@MACAddr-1@</Identifier>
+                    <UnicastIpAddresses>
+                        <IpAddress wcm:action="add" wcm:keyValue="1">@IP4Addr-1@</IpAddress>
+                        <IpAddress wcm:action="add" wcm:keyValue="2">@IP6Addr-1@</IpAddress>
+                    </UnicastIpAddresses>
+                    <Routes>
+                        <Route wcm:action="add">
+                            <Identifier>1</Identifier>#
+                            <NextHopAddress>@NextHop-1-1@</NextHopAddress>
+                        </Route>
+                    </Routes>
+                </Interface>
+            </Interfaces>
+        </component>
+        <component name="Microsoft-Windows-DNS-Client" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" 
+            xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State" 
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+            <Interfaces>
+                <Interface wcm:action="add">
+                    <DNSServerSearchOrder>
+                        <IpAddress wcm:action="add" wcm:keyValue="1">@DnsAddr-1-1@</IpAddress>
+                    </DNSServerSearchOrder>
+                    <Identifier>@MACAddr-1@</Identifier>
+                </Interface>
+            </Interfaces>
+        </component>
+        <component name="Microsoft-Windows-UnattendedJoin" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" 
+            xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State" 
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+            <Identification>
+                <Credentials>
+                    <Domain>##DomainJoinCredential#Domain##</Domain>
+                    <Username>##DomainJoinCredential#Username##</Username>
+                    <Password>##DomainJoinCredential#Password##</Password>
+                </Credentials>
+                <JoinDomain>##DomainName##</JoinDomain>
+            </Identification>
+        </component>
+        <component name="Microsoft-Windows-TerminalServices-LocalSessionManager" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" 
+            xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State" 
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+            <fDenyTSConnections>false</fDenyTSConnections>
+        </component>
+        <component name="Networking-MPSSVC-Svc" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" 
+            xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State" 
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+            <FirewallGroups>
+                <FirewallGroup wcm:action="add" wcm:keyValue="RDGroup">
+                    <Active>true</Active>
+                    <Group>@FirewallAPI.dll,-28752</Group>
+                    <Profile>all</Profile>
+                </FirewallGroup>
+            </FirewallGroups>
+        </component>
+        <component name="Microsoft-Windows-TerminalServices-RDP-WinStationExtensions" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" 
+            xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State" 
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+            <UserAuthentication>0</UserAuthentication>
+        </component>
+    </settings>
+    <settings pass="oobeSystem">
+        <component name="Microsoft-Windows-Shell-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" 
+            xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State" 
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+            <OOBE>
+                <HideEULAPage>true</HideEULAPage>
+                <HideLocalAccountScreen>true</HideLocalAccountScreen>
+                <HideOEMRegistrationScreen>true</HideOEMRegistrationScreen>
+                <HideOnlineAccountScreens>true</HideOnlineAccountScreens>
+                <HideWirelessSetupInOOBE>true</HideWirelessSetupInOOBE>
+                <NetworkLocation>Work</NetworkLocation>
+                <SkipUserOOBE>true</SkipUserOOBE>
+                <SkipMachineOOBE>true</SkipMachineOOBE>
+            </OOBE>
+            <UserAccounts>
+                <AdministratorPassword>
+                    <Value>##Administrator#Password##</Value>
+                    <PlainText>true</PlainText>
+                </AdministratorPassword>
+                <LocalAccounts>
+                    <LocalAccount wcm:action="add">
+                        <Name>##Administrator#UserName##</Name>
+                        <Password>
+                            <Value>##Administrator#Password##</Value>
+                            <PlainText>true</PlainText>
+                        </Password>
+                        <Group>Administrators</Group>
+                    </LocalAccount>
+                </LocalAccounts>
+            </UserAccounts>
+        </component>
+        <component name="Microsoft-Windows-International-Core" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" 
+            xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State" 
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+            <InputLocale>##Locale##</InputLocale>
+            <UserLocale>##Locale##</UserLocale>
+            <SystemLocale>##Locale##</SystemLocale>
+            <UILanguage>##Locale##</UILanguage>
+        </component>
+    </settings>
+</unattend>

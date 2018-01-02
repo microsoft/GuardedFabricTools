@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Types>
+    <Type>
+        <Name>System.Security.Cryptography.X509Certificates.X509Certificate2</Name>
+        <Members>
+            <ScriptProperty>
+                <Name>SafePrivateKeyHandle</Name>
+                <GetScriptBlock>
+                  if ($global:ContosoCertificateManagementHandleCache -ne $null `
+                    -and ($cachedHandle = $global:ContosoCertificateManagementHandleCache[$this.GetHashCode()]) -ne $null `
+                    -and $cachedHandle.IsValid)
+                  {
+                    Write-Verbose "Using a cached handle."
+                    Write-Output $cachedHandle
+                  }
+                  else
+                  {
+                    if ($global:ContosoCertificateManagementHandleCache -eq $null)
+                    {
+                      Write-Verbose "Initializing handle cache."
+                      $global:ContosoCertificateManagementHandleCache = @{}
+                    }
+
+                    Write-Verbose "Opening a fresh handle."
+                    $handle = [Contoso.CryptoTriage]::TriageAcquireKeyHandle($this)
+                    $global:ContosoCertificateManagementHandleCache[$this.GetHashCode()] = $handle
+
+                    Write-Verbose "Retrieved a $($handle.GetType()) certificate handle."
+                    Write-Output $handle
+                  }
+                </GetScriptBlock>
+            </ScriptProperty>
+            <ScriptProperty>
+                <Name>Acl</Name>
+                <GetScriptBlock>
+                  $sd = $this.SafePrivateKeyHandle.Acl
+                  Write-Verbose "$($sd.Access.Count) rule(s) found."
+                  Write-Output $sd
+                </GetScriptBlock>
+                <SetScriptBlock>
+                  Param(
+                    [System.Security.AccessControl.FileSecurity] $value
+                  )
+
+                  $this.SafePrivateKeyHandle.Acl = $value
+                </SetScriptBlock>
+            </ScriptProperty>
+        </Members>
+    </Type>
+</Types>
