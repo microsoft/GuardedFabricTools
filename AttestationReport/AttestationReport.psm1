@@ -1,12 +1,5 @@
-############################
-#
-# Copyright (c) Microsoft Corporation
-#
-# Abstract:
-#   These script cmdlets are provided as a reporting tool for initialized HGS server instances.
-#
-############################
-
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
 
 # Creation of an attestation report class to have meaningful data and formatting
 class AttestationReport
