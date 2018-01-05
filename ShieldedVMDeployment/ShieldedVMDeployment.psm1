@@ -160,6 +160,7 @@ function New-ShieldedVM {
         $null = Microsoft.PowerShell.Management\New-Item -Path $VMPath -ItemType Directory -ErrorAction Stop
         $VhdDirectory = Microsoft.PowerShell.Management\Join-Path $VMPath "Virtual Hard Disks"
         $null = Microsoft.PowerShell.Management\New-Item -Path $VhdDirectory -ItemType Directory -ErrorAction Stop
+        $VHDPath = Microsoft.PowerShell.Management\Join-Path $VhdDirectory "$Name-OS.vhdx"
     }
 
     # Ensure specialization values are not null
@@ -176,23 +177,7 @@ function New-ShieldedVM {
         }
     }
 
-    ## Prepare artifacts before copying disk
-    # Get the security data from the PDK file
-    try {
-        $pdk = CimCmdlets\Invoke-CimMethod -ClassName  Msps_ProvisioningFileProcessor -Namespace root\msps -MethodName PopulateFromFile -Arguments @{ FilePath = $ShieldingDataFilePath } -Verbose:$false -ErrorAction Stop
-        $cimvm = CimCmdlets\Get-CimInstance  -Namespace root\virtualization\v2 -Class Msvm_ComputerSystem -Filter "Name = '$($vm.VMId)'" -Verbose:$false -ErrorAction Stop
-        $vsd = CimCmdlets\Get-CimAssociatedInstance -InputObject $cimvm -ResultClassName "Msvm_VirtualSystemSettingData" -Verbose:$false -ErrorAction Stop
-        $ssd = CimCmdlets\Get-CimAssociatedInstance -InputObject $vsd -ResultClassName "Msvm_SecuritySettingData" -Verbose:$false -ErrorAction Stop
-        $ss = CimCmdlets\Get-CimAssociatedInstance -InputObject $cimvm -ResultClassName "Msvm_SecurityService" -Verbose:$false -ErrorAction Stop
-        $cimSerializer = [Microsoft.Management.Infrastructure.Serialization.CimSerializer]::Create()
-        $ssdString = [System.Text.Encoding]::Unicode.GetString($cimSerializer.Serialize($ssd, [Microsoft.Management.Infrastructure.Serialization.InstanceSerializationOptions]::None))
-    }
-    catch {
-        throw "A security policy could not be created from the shielding data file."
-    }
-
     ## Create the VM
-    $VHDPath = Microsoft.PowerShell.Management\Join-Path $VhdDirectory "$Name-OS.vhdx"
     Microsoft.PowerShell.Utility\Write-Verbose ("Copying the template disk to '{0}'" -f $VHDPath)
     Microsoft.PowerShell.Management\Copy-Item -Path $TemplateDiskPath -Destination $VHDPath -ErrorAction Stop
 
@@ -207,6 +192,20 @@ function New-ShieldedVM {
     # Attach the key protector
     $kp = Get-KeyProtectorFromShieldingDataFile -ShieldingDataFilePath $ShieldingDataFilePath
     Hyper-V\Set-VMKeyProtector -VM $vm -KeyProtector $kp -ErrorAction Stop
+
+    # Get the security data from the PDK file
+    try {
+        $pdk = CimCmdlets\Invoke-CimMethod -ClassName  Msps_ProvisioningFileProcessor -Namespace root\msps -MethodName PopulateFromFile -Arguments @{ FilePath = $ShieldingDataFilePath } -Verbose:$false -ErrorAction Stop
+        $cimvm = CimCmdlets\Get-CimInstance  -Namespace root\virtualization\v2 -Class Msvm_ComputerSystem -Filter "Name = '$($vm.VMId)'" -Verbose:$false -ErrorAction Stop
+        $vsd = CimCmdlets\Get-CimAssociatedInstance -InputObject $cimvm -ResultClassName "Msvm_VirtualSystemSettingData" -Verbose:$false -ErrorAction Stop
+        $ssd = CimCmdlets\Get-CimAssociatedInstance -InputObject $vsd -ResultClassName "Msvm_SecuritySettingData" -Verbose:$false -ErrorAction Stop
+        $ss = CimCmdlets\Get-CimAssociatedInstance -InputObject $cimvm -ResultClassName "Msvm_SecurityService" -Verbose:$false -ErrorAction Stop
+        $cimSerializer = [Microsoft.Management.Infrastructure.Serialization.CimSerializer]::Create()
+        $ssdString = [System.Text.Encoding]::Unicode.GetString($cimSerializer.Serialize($ssd, [Microsoft.Management.Infrastructure.Serialization.InstanceSerializationOptions]::None))
+    }
+    catch {
+        throw "A security policy could not be created from the shielding data file.`n`n$($_.Message)"
+    }
 
     # Apply the VM security policy and enable the VM TPM
     Microsoft.PowerShell.Utility\Write-Verbose "Enabling VM TPM"
@@ -237,9 +236,14 @@ function New-ShieldedVM {
             Write-Progress -Activity ("Provisioning shielded VM '{0}'" -f $Name) -PercentComplete $status.PercentComplete -Status ("{0}% complete" -f $Status.PercentComplete)
             Microsoft.PowerShell.Utility\Start-Sleep -Milliseconds 1500
         }
-        while ($status -and $status.PercentComplete -lt 100)
+        while ($status -and $status.Status -ne 'Error' -and $status.PercentComplete -lt 100)
 
-        Microsoft.PowerShell.Utility\Write-Output $status.JobStatus
+        if ($status) {
+            Microsoft.PowerShell.Utility\Write-Output $status.JobStatus
+        }
+        else {
+            Microsoft.Powershell.Utility\Write-Output "Unable to check the status of the shielded VM provisioning process."
+        }
     }
     else {
         return $provisioningJob
