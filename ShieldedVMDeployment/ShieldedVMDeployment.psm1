@@ -160,7 +160,6 @@ function New-ShieldedVM {
         $null = Microsoft.PowerShell.Management\New-Item -Path $VMPath -ItemType Directory -ErrorAction Stop
         $VhdDirectory = Microsoft.PowerShell.Management\Join-Path $VMPath "Virtual Hard Disks"
         $null = Microsoft.PowerShell.Management\New-Item -Path $VhdDirectory -ItemType Directory -ErrorAction Stop
-        $VHDPath = Microsoft.PowerShell.Management\Join-Path $VhdDirectory "$Name-OS.vhdx"
     }
 
     # Ensure specialization values are not null
@@ -178,6 +177,7 @@ function New-ShieldedVM {
     }
 
     ## Create the VM
+    $VHDPath = Microsoft.PowerShell.Management\Join-Path $VhdDirectory "$Name-OS.vhdx"
     Microsoft.PowerShell.Utility\Write-Verbose ("Copying the template disk to '{0}'" -f $VHDPath)
     Microsoft.PowerShell.Management\Copy-Item -Path $TemplateDiskPath -Destination $VHDPath -ErrorAction Stop
 
