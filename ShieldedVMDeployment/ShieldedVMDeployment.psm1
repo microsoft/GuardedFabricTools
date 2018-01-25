@@ -240,6 +240,10 @@ function New-ShieldedVM {
 
         if ($status) {
             Microsoft.PowerShell.Utility\Write-Output $status.JobStatus
+
+            if ($status.ErrorDescription) {
+                Microsoft.PowerShell.Utility\Write-Error $status.ErrorDescription
+            }
         }
         else {
             Microsoft.Powershell.Utility\Write-Output "Unable to check the status of the shielded VM provisioning process."
