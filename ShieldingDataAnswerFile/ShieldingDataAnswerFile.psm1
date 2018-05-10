@@ -501,10 +501,11 @@ Remove-Item "$env:SystemDrive\temp\RDPCertificateConfig.ps1" -Force
         $FSKSubstitutionStrings += [pscustomobject] @{ Key = '@DnsAddr-1-1@'; Purpose = 'Static DNS server address' }
     }
     if ($FSK_IPv4Sub -or $FSK_IPv6Sub) {
-        $FSKSubstitutionStrings += [pscustomobject] @{ Key = '@NextHop-1-1@'; Purpose = 'Static gateway address' }
+        $FSKSubstitutionStrings += [pscustomobject] @{ Key = '@NextHop-1-1@'; Purpose = 'Static gateway address (e.g. 192.168.0.1)' }
+        $FSKSubstitutionStrings += [pscustomobject] @{ Key = '@Prefix-1-1@'; Purpose = 'Prefix length for the route (e.g. 24)'}
     }
     if ($FSK_IPv4Sub) {
-        $FSKSubstitutionStrings += [pscustomobject] @{ Key = '@IP4Addr-1@'; Purpose = 'Static IPv4 Address (CIDR notation)' }
+        $FSKSubstitutionStrings += [pscustomobject] @{ Key = '@IP4Addr-1@'; Purpose = 'Static IPv4 Address with prefix (CIDR notation)' }
     }
     if ($FSK_IPv6Sub) {
         $FSKSubstitutionStrings += [pscustomobject] @{ Key = '@IP6Addr-1@'; Purpose = 'Static IPv6 Address (CIDR notation)' }

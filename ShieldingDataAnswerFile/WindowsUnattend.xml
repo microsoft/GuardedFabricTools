@@ -53,8 +53,9 @@
                     </UnicastIpAddresses>
                     <Routes>
                         <Route wcm:action="add">
-                            <Identifier>1</Identifier>#
+                            <Identifier>1</Identifier>
                             <NextHopAddress>@NextHop-1-1@</NextHopAddress>
+                            <Prefix>@Prefix-1-1@</Prefix>
                         </Route>
                     </Routes>
                 </Interface>
