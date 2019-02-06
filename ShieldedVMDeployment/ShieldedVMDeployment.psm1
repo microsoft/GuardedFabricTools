@@ -1,6 +1,58 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
+function GetPdk($Path) {
+    $pdk = CimCmdlets\Invoke-CimMethod -ClassName  Msps_ProvisioningFileProcessor -Namespace root\msps -MethodName PopulateFromFile -Arguments @{ FilePath = $ShieldingDataFilePath } -Verbose:$false -ErrorAction SilentlyContinue
+    
+    if (-not $pdk) {
+        throw "Could not read PDK file."
+    }
+
+    return $pdk.ProvisioningFile
+}
+
+function GetSecuritySettingDataString($vm) {
+    try {
+        $cimvm = CimCmdlets\Get-CimInstance  -Namespace root\virtualization\v2 -Class Msvm_ComputerSystem -Filter "Name = '$($vm.VMId)'" -Verbose:$false -ErrorAction Stop
+        $vsd = CimCmdlets\Get-CimAssociatedInstance -InputObject $cimvm -ResultClassName "Msvm_VirtualSystemSettingData" -Verbose:$false -ErrorAction Stop
+        $ssd = CimCmdlets\Get-CimAssociatedInstance -InputObject $vsd -ResultClassName "Msvm_SecuritySettingData" -Verbose:$false -ErrorAction Stop
+        $cimSerializer = [Microsoft.Management.Infrastructure.Serialization.CimSerializer]::Create()
+        $ssdString = [System.Text.Encoding]::Unicode.GetString($cimSerializer.Serialize($ssd, [Microsoft.Management.Infrastructure.Serialization.InstanceSerializationOptions]::None))
+    }
+    catch {
+        throw "Could not read security setting data string"
+    }
+
+    return $ssdString
+}
+
+function GetSecurityService($vm) {
+    try {
+        $cimvm = CimCmdlets\Get-CimInstance -Namespace root\virtualization\v2 -Class Msvm_ComputerSystem -Filter "Name = '$($vm.VMId)'" -Verbose:$false -ErrorAction Stop
+        $ss = CimCmdlets\Get-CimAssociatedInstance -InputObject $cimvm -ResultClassName "Msvm_SecurityService" -Verbose:$false -ErrorAction Stop
+    }
+    catch {
+        throw "Could not get security service for VM"
+    }
+
+    return $ss
+}
+
+function SetSecurityPolicy($vm, $pdk) {
+    try {
+        $ss = GetSecurityService -vm $vm
+        $ssdString = GetSecuritySettingDataString -vm $vm
+        $null = CimCmdlets\Invoke-CimMethod -InputObject $ss -MethodName SetSecurityPolicy -Arguments @{ "SecuritySettingData" = $ssdString; "SecurityPolicy" = $pdk.PolicyData } -Verbose:$false -ErrorAction Stop
+    }
+    catch {
+        throw "Could not apply security policy to VM"
+    }
+}
+
+function IsPdkForExistingVM($pdk) {
+    return (-not $pdk.VolumeIDFilters)
+}
+
 function New-ShieldedVM {
     
     <#
@@ -251,5 +303,141 @@ function New-ShieldedVM {
     }
     else {
         return $provisioningJob
+    }
+}
+
+function ConvertTo-ShieldedVM {
+    <#
+    .SYNOPSIS
+    Converts an existing virtual machine to a shielded virtual machine.
+    
+    .DESCRIPTION
+    Converts an existing virtual machine to a shielded virtual machine by applying a virtual TPM and security policy to the VM.
+    The VM will not automatically be encrypted by this command, but encryption can be enabled inside the guest OS after the virtual TPM is available.
+    See https://aka.ms/AA3trat for information about automating the encryption of existing VMs.
+    
+    .PARAMETER VM
+    Specifies the virtual machine to convert to a shielded virtual machine.
+    
+    .PARAMETER VMName
+    Specifies the name of the virtual machine to convert to a shielded virtual machine.
+
+    .PARAMETER ShieldingDataFilePath
+    Path to a shielding data file used to shield the VM.
+    The security policy and key protector from the shielding data file are applied to the specified VM.
+    Answer files and additional files included in the shielding data file are not copied into the VM.
+    
+    .EXAMPLE
+    $vm = Get-VM "SQL01"
+    ConvertTo-ShieldedVM -VM $vm -ShieldingDataFilePath 'D:\ShieldingData\existingvm.pdk'
+
+    Converts the "SQL01" virtual machine to a shielded virtual machine using the specified shielding data file.
+
+    .EXAMPLE
+    ConvertTo-ShieldedVM -VMName "CORPDC01" -ShieldingDataFilePath 'D:\ShieldingData\existingvm.pdk'
+
+    Converts the "CORPDC01" virtual machine to a shielded virtual machine using the specified shielding data file.
+    #>
+
+    [CmdletBinding(DefaultParameterSetName="ByName", SupportsShouldProcess=$true, ConfirmImpact="Medium")]
+    param(
+        [Parameter(Mandatory=$true, Position=0, ParameterSetName="ByVM")]
+        [ValidateNotNullOrEmpty()]
+        [Microsoft.HyperV.PowerShell.VirtualMachine]
+        $VM,
+
+        [Parameter(Mandatory=$true, Position=0, ParameterSetName="ByName")]
+        [ValidateNotNullOrEmpty()]
+        [string]
+        $VMName,
+
+        [Parameter(Mandatory=$true)]
+        [ValidateNotNullOrEmpty()]
+        [string]
+        $ShieldingDataFilePath
+    )
+
+    ## Parameter validation
+    # Check VM name
+    if ($PSCmdlet.ParameterSetName -eq "ByName") {
+        $VM = Get-VM -Name $VMName -ErrorAction Stop
+    }
+
+    # Check if VM can be shielded
+    if ($VM.Generation -ne 2) {
+        throw "The specified virtual machine is a generation 1 VM. Only generation 2 VMs can be shielded."
+    }
+
+    $kp = Get-VMKeyProtector -VM $VM
+    if ($kp.Length -gt 4) {
+        throw "The specified virtual machine has already been configured with a key protector. To change the key protector, delete the VM configuration and create a new one. This will also delete the virtual TPM associated with this VM and could result in data loss if data encryption is not suspended first."
+    }
+
+    $firmware = Get-VMFirmware -VM $VM
+    if ($firmware.SecureBoot -ne "On") {
+        throw "Secure Boot must be enabled on the virtual machine before it can be shielded."
+    }
+
+    if ($vm.State -ne 'Off') {
+        throw "The virtual machine must be turned off before it can be shielded."
+    }
+
+    $vmVersion = [System.Version] $vm.Version
+    $minVersion = [System.Version] "8.0"
+    if ($vmVersion -lt $minVersion) {
+        $latestVersion = (Get-VMHostSupportedVersion -Default).Version.ToString()
+        throw "The virtual machine configuration version is currently $($vm.Version) but must be upgraded before the virtual machine can be shielded. Run `"Update-VMVersion '$($vm.Name)'`" to upgrade the VM to version $latestVersion." 
+    }
+
+    # Ensure shielding data file exists
+    $ShieldingDataFilePath = Microsoft.PowerShell.Management\Resolve-Path $ShieldingDataFilePath -ErrorAction Stop | Microsoft.PowerShell.Management\Convert-Path
+    if (-not (Microsoft.PowerShell.Management\Test-Path $ShieldingDataFilePath -PathType Leaf) -or $ShieldingDataFilePath -notlike "*.pdk") {
+        throw [System.IO.FileNotFoundException] "The shielding data file path is invalid."
+    }
+
+    # Try opening the shielding data file
+    try {
+        $pdk = GetPDK -Path $ShieldingDataFilePath
+        
+        if (-not $pdk -or -not $pdk.PolicyData) {
+            throw "Could not parse the shielding data file."
+        }
+    }
+    catch {
+        throw "Could not open the shielding data file."
+    }
+
+    # Warn if differencing disks are in use
+    $VHDs = Get-VMHardDiskDrive -VM $VM
+    foreach ($vhd in $VHDs) {
+        $vhdDetails = Get-VHD -Path $vhd.Path
+        if ($vhdDetails.VhdType -eq "Differencing") {
+            Write-Warning "The specified virtual machine uses one or more differencing disks. To ensure all data is protected when you encrypt data on this virtual machine, delete all checkpoints and merge any differencing disks before enabling full volume encryption. Existing backups, checkpoints, and parent VHDs will not be encrypted if the guest OS enables full volume encryption."
+            break
+        }
+    }
+
+    ## Convert the VM
+    if ($PSCmdlet.ShouldProcess("Converting '$($VM.Name)' to a shielded virtual machine", "Are you sure you want to convert '$($VM.Name)' to a shielded virtual machine?", "Shield existing VM")) {
+        # Upgrade the VM version if necessary
+        if ($vmVersion -lt $minVersion) {
+            Write-Verbose "Upgrading VM version"
+            Update-VMVersion -VM $VM -Force
+        }
+
+        # Attach the key protector
+        Write-Verbose "Setting key protector on VM"
+        $kp = Get-KeyProtectorFromShieldingDataFile -ShieldingDataFilePath $ShieldingDataFilePath
+        Set-VMKeyProtector -VM $vm -KeyProtector $kp -ErrorAction Stop
+
+        # Set the security policy
+        Write-Verbose "Applying security policy to the VM"
+        SetSecurityPolicy -vm $VM -pdk $pdk
+
+        # Enable the VM TPM
+        Write-Verbose "Enabling the VM TPM"
+        Enable-VMTPM -VM $VM -ErrorAction Stop
+
+        Write-Output "The virtual TPM has been enabled on the VM. To encrypt the VM data, turn on the VM and enable full volume encryption (leveraging the TPM to protect the encryption key) using the instructions for your operating system."
     }
 }
