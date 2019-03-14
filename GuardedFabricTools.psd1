@@ -7,7 +7,7 @@
 # RootModule = ''
 
 # Version number of this module.
-ModuleVersion = '1.0.0'
+ModuleVersion = '1.1.0'
 
 # ID used to uniquely identify this module
 GUID = '3457a838-dad2-4e37-95fe-46c57542ae07'
@@ -117,7 +117,7 @@ PrivateData = @{
         # IconUri = ''
 
         # ReleaseNotes of this module
-        ReleaseNotes = @('Added New-ShieldedVM to help you deploy shielded virtual machines in PowerShell and updated New-ShieldingDataAnswerFile to fix some errors and support the Virtual Machine Manager specialization agent for Linux.')
+        ReleaseNotes = @('Added ConvertTo-ShieldedVM cmdlet. This cmdlet can be used to add a vTPM and security policy to an exiting VM.')
 
     } # End of PSData hashtable
 
