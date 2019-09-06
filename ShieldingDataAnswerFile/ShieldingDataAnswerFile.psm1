@@ -353,7 +353,7 @@ Remove-Item "$env:SystemDrive\temp\RDPCertificateConfig.ps1" -Force
 
                 $clone = $firstCommand.CloneNode($true)
                 $clone.Description = "Configures the RDP certificate"
-                $clone.Path = 'cmd.exe /c "echo powershell.exe -File %SYSTEMDRIVE%\temp\RDPCertificateConfig.ps1" >> %WINDIR%\Setup\Scripts\SetupComplete.cmd'
+                $clone.Path = 'cmd.exe /c "echo powershell.exe -ExecutionPolicy Unrestricted -File %SYSTEMDRIVE%\temp\RDPCertificateConfig.ps1" >> %WINDIR%\Setup\Scripts\SetupComplete.cmd'
 
                 $null = $firstCommand.ParentNode.InsertBefore($clone, $firstCommand)
 
